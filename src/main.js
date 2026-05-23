@@ -37,6 +37,7 @@ import {
   addDeviceToRoom,
   removeDeviceFromRoom,
   availableKeys,
+  persistLayout,
   usesPushControl,
   canChooseControlMode,
   roomAbbr,
@@ -46,6 +47,7 @@ import {
   MAX_ADDITIONAL_ROOMS,
 } from "./room-store.js";
 import { subscribeLayout, queueSaveLayout } from "./layout-sync.js";
+import { applyCountLimits, pruneChannelsToCounts, pruneLayoutDevices } from "./channel-prune.js";
 import {
   parseTimeValue,
   formatTimeValue,
@@ -412,7 +414,7 @@ function renderRoomDetail(state) {
   if (!room) return "";
 
   const active = roomActiveCount(room, state.values);
-  const typeLabel = roomType === "switch" ? "Switches" : roomType === "motor" ? "Motors" : "Alarms";
+  const typeLabel = roomType === "switch" ? "Switches" : roomType === "motor" ? "Motors" : "Alarm";
   const rows = room.devices.map((d) => renderDeviceRow(d, room, state.values, roomType)).join("");
 
   return `
@@ -534,7 +536,7 @@ function renderOverview(state) {
 
     <section class="section-block">
       <div class="section-head">
-        <h2>Alarm rooms <span class="section-head__count">${layout.alarmRooms.length}/${MAX_ROOMS_PER_TYPE}</span></h2>
+        <h2>Alarm zones <span class="section-head__count">${layout.alarmRooms.length}/${MAX_ROOMS_PER_TYPE}</span></h2>
         <button type="button" class="btn-text" data-action="open-add-room" data-room-type="alarm" ${canAddRoom(layout, "alarm") ? "" : "disabled"}>+ Add room</button>
       </div>
       <div class="zone-grid">${renderRoomCards(layout.alarmRooms, "alarm", values)}</div>
@@ -591,7 +593,7 @@ function renderDeveloper(state) {
         ${devField("path-onTimingSuffix", "ON timing suffix", d.paths.onTimingSuffix)}
         ${devField("path-offTimingSuffix", "OFF timing suffix", d.paths.offTimingSuffix)}
       </div>
-      <p class="dev-preview">Live preview: ${escapeHtml(P.switches.root)}/SW1 … ${escapeHtml(P.switches.root)}/SW${P.meta.switchCount} · timings ${escapeHtml(P.meta.onTimingSuffix)}</p>
+      <p class="dev-preview">Channels: ${escapeHtml(P.switches.root)}/SW1–SW${P.meta.switchCount} · ${escapeHtml(P.motors.root)}/M1–M${P.meta.motorCount} · ${escapeHtml(P.alarms.root)}/${escapeHtml(P.meta.alarmPrefix)}1–${escapeHtml(P.meta.alarmPrefix)}${P.meta.alarmCount}. Lowering a count removes extra keys from Firebase on save.</p>
     </section>
 
     <footer class="dev-actions">
@@ -913,11 +915,22 @@ function mountApp(db) {
     });
   });
 
+  void (async () => {
+    try {
+      await pruneChannelsToCounts(db);
+      state.layout = pruneLayoutDevices(state.layout);
+      persistLayout(state.layout);
+      paintNow();
+    } catch (err) {
+      showToast(`Channel sync: ${err.message}`);
+    }
+  })();
+
   subscribeLayout(
     db,
     (layout) => {
       if (Date.now() < ignoreLayoutRemoteUntil) return;
-      state.layout = layout;
+      state.layout = pruneLayoutDevices(layout);
       state.layoutReady = true;
       paintNow();
     },
@@ -1027,6 +1040,15 @@ function mountApp(db) {
 
     if (action === "save-dev-config") {
       saveDevSettings(readDevDraftFromDom());
+      rebuildCatalog();
+      try {
+        await applyCountLimits(db, state.layout);
+      } catch (err) {
+        state.error = err.message;
+        showToast(`Settings saved; prune failed: ${err.message}`);
+        paintNow();
+        return;
+      }
       location.reload();
       return;
     }

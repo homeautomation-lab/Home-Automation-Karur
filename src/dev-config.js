@@ -84,7 +84,7 @@ export function saveDevSettings({ firebase, paths }) {
       alarmCount: clampInt(paths.alarmCount, 1, 32, DEFAULT_PATH_SETTINGS.alarmCount),
       switchPrefix: String(paths.switchPrefix || "SW").trim(),
       motorPrefix: String(paths.motorPrefix || "M").trim(),
-      alarmPrefix: String(paths.alarmPrefix || "ALRM").trim(),
+      alarmPrefix: String(paths.alarmPrefix || "alarm").trim(),
       onTimingSuffix: String(paths.onTimingSuffix || "-ON_TIMING").trim(),
       offTimingSuffix: String(paths.offTimingSuffix || "-OFF_TIMING").trim(),
       pushSuffix: String(paths.pushSuffix || "-PUSH").trim(),

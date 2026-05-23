@@ -1,3 +1,4 @@
+import { getPATHS } from "./db-paths.js";
 import { catalogForType, addableCatalog, pushKeyFor } from "./firebase-catalog.js";
 
 const STORAGE_KEY = "lumina-room-layout-v4";
@@ -30,7 +31,7 @@ function normalizeRoom(room) {
     name: String(room.name || "Room"),
     devices: Array.isArray(room.devices)
       ? room.devices
-          .filter((d) => d && d.firebaseKey && !isStandaloneTimingKey(d.firebaseKey))
+          .filter((d) => d && d.firebaseKey && !isStandaloneAuxKey(d.firebaseKey))
           .map((d) => {
             const kind = d.kind || inferKind(d.firebaseKey);
             return {
@@ -44,20 +45,26 @@ function normalizeRoom(room) {
   };
 }
 
-function isStandaloneTimingKey(firebaseKey) {
+function isStandaloneAuxKey(firebaseKey) {
+  const { meta } = getPATHS();
   return (
-    firebaseKey.endsWith("-ON_TIMING") ||
-    firebaseKey.endsWith("-OFF_TIMING") ||
-    firebaseKey.endsWith("-PUSH")
+    firebaseKey.endsWith(meta.onTimingSuffix) ||
+    firebaseKey.endsWith(meta.offTimingSuffix) ||
+    firebaseKey.endsWith(meta.pushSuffix)
   );
 }
 
 function inferKind(firebaseKey) {
-  if (firebaseKey.endsWith("-ON_TIMING")) return "timing-on";
-  if (firebaseKey.endsWith("-OFF_TIMING")) return "timing-off";
-  if (firebaseKey.startsWith("SW")) return "switch";
-  if (firebaseKey.startsWith("M")) return "motor";
-  if (firebaseKey.startsWith("ALRM")) return "alarm";
+  const { meta } = getPATHS();
+  if (firebaseKey.endsWith(meta.onTimingSuffix)) return "timing-on";
+  if (firebaseKey.endsWith(meta.offTimingSuffix)) return "timing-off";
+  if (firebaseKey.startsWith(meta.switchPrefix)) return "switch";
+  if (firebaseKey.startsWith(meta.motorPrefix)) {
+    return firebaseKey.endsWith(meta.pushSuffix) ? "motor-push" : "motor";
+  }
+  if (firebaseKey.startsWith(meta.alarmPrefix) || firebaseKey.startsWith("ALRM")) {
+    return firebaseKey.endsWith(meta.pushSuffix) ? "alarm-push" : "alarm";
+  }
   return "switch";
 }
 
