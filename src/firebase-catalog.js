@@ -1,7 +1,32 @@
 import { getPATHS } from "./db-paths.js";
 
 function entry(root, key, kind, label) {
-  return { key, root, kind, defaultLabel: label ?? key };
+  return { key, root, kind, defaultLabel: label ?? defaultDisplayLabel(key, kind) };
+}
+
+function channelNumber(key, prefix) {
+  if (!key.startsWith(prefix)) return null;
+  const m = key.slice(prefix.length).match(/^(\d+)/);
+  return m ? m[1] : null;
+}
+
+/** Human name for a channel key, e.g. alarm1 → "Alarm 1", SW3 → "Switch 3". */
+export function defaultDisplayLabel(firebaseKey, kind) {
+  const { meta } = getPATHS();
+  if (kind === "switch" || firebaseKey.startsWith(meta.switchPrefix)) {
+    const n = channelNumber(firebaseKey, meta.switchPrefix);
+    return n ? `Switch ${n}` : firebaseKey;
+  }
+  if (kind === "motor" || firebaseKey.startsWith(meta.motorPrefix)) {
+    const n = channelNumber(firebaseKey, meta.motorPrefix);
+    return n ? `Motor ${n}` : firebaseKey;
+  }
+  if (kind === "alarm" || firebaseKey.startsWith(meta.alarmPrefix) || firebaseKey.startsWith("ALRM")) {
+    let n = channelNumber(firebaseKey, meta.alarmPrefix);
+    if (!n && firebaseKey.startsWith("ALRM")) n = channelNumber(firebaseKey, "ALRM");
+    return n ? `Alarm ${n}` : firebaseKey;
+  }
+  return firebaseKey;
 }
 
 function timingKindForKey(key, onSuffix, offSuffix) {
@@ -14,7 +39,7 @@ function buildSwitchCatalog() {
   const { switches, meta } = getPATHS();
   const { root, toggles, timings } = switches;
   return [
-    ...toggles.map((key) => entry(root, key, "switch", key)),
+    ...toggles.map((key) => entry(root, key, "switch")),
     ...timings
       .map((key) => {
         const kind = timingKindForKey(key, meta.onTimingSuffix, meta.offTimingSuffix);
@@ -28,7 +53,7 @@ function buildMotorCatalog() {
   const { motors, meta } = getPATHS();
   const { root, toggles, timings, pushes } = motors;
   return [
-    ...toggles.map((key) => entry(root, key, "motor", key)),
+    ...toggles.map((key) => entry(root, key, "motor")),
     ...pushes.map((key) => entry(root, key, "motor-push", key)),
     ...timings
       .map((key) => {
@@ -43,7 +68,7 @@ function buildAlarmCatalog() {
   const { alarms } = getPATHS();
   const { root, toggles, pushes } = alarms;
   return [
-    ...toggles.map((key) => entry(root, key, "alarm", key)),
+    ...toggles.map((key) => entry(root, key, "alarm")),
     ...pushes.map((key) => entry(root, key, "alarm-push", key)),
   ];
 }

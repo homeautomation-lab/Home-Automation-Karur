@@ -267,7 +267,7 @@ function renderAddDeviceModal(state, roomType, roomId) {
   const opts = avail
     .map((d) => {
       const sel = d.key === selected ? " selected" : "";
-      return `<option value="${escapeHtml(d.key)}"${sel}>${escapeHtml(d.key)} — ${escapeHtml(d.defaultLabel)}</option>`;
+      return `<option value="${escapeHtml(d.key)}"${sel}>${escapeHtml(d.defaultLabel)} (${escapeHtml(d.key)})</option>`;
     })
     .join("");
   const controlChoice = showControlChoice

@@ -1,5 +1,10 @@
 import { getPATHS } from "./db-paths.js";
-import { catalogForType, addableCatalog, pushKeyFor } from "./firebase-catalog.js";
+import {
+  catalogForType,
+  addableCatalog,
+  pushKeyFor,
+  defaultDisplayLabel,
+} from "./firebase-catalog.js";
 
 const STORAGE_KEY = "lumina-room-layout-v4";
 
@@ -24,6 +29,30 @@ export function defaultLayout() {
   };
 }
 
+function normalizeDeviceLabel(label, firebaseKey, kind) {
+  const friendly = defaultDisplayLabel(firebaseKey, kind);
+  const raw = String(label || "").trim();
+  if (!raw || raw === firebaseKey || raw.toLowerCase() === firebaseKey.toLowerCase()) {
+    return friendly;
+  }
+  const lower = raw.toLowerCase();
+  const friendlyLower = friendly.toLowerCase();
+  if (lower === friendlyLower) return friendly;
+  if (lower === `${kind} ${friendlyLower}` || lower === `${kind} ${firebaseKey.toLowerCase()}`) {
+    return friendly;
+  }
+  if (kind === "alarm" && /^alarm\s+/i.test(raw) && lower.includes(firebaseKey.toLowerCase())) {
+    return friendly;
+  }
+  if (kind === "switch" && /^switch\s+/i.test(raw) && lower.includes(firebaseKey.toLowerCase())) {
+    return friendly;
+  }
+  if (kind === "motor" && /^motor\s+/i.test(raw) && lower.includes(firebaseKey.toLowerCase())) {
+    return friendly;
+  }
+  return raw;
+}
+
 function normalizeRoom(room) {
   if (!room || typeof room !== "object") return null;
   return {
@@ -36,7 +65,7 @@ function normalizeRoom(room) {
             const kind = d.kind || inferKind(d.firebaseKey);
             return {
               firebaseKey: d.firebaseKey,
-              label: String(d.label || d.firebaseKey),
+              label: normalizeDeviceLabel(d.label, d.firebaseKey, kind),
               kind,
               controlMode: normalizeControlMode(d.controlMode, kind),
             };
