@@ -77,10 +77,7 @@ function escapeHtml(s) {
 }
 
 function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good Morning.";
-  if (h < 17) return "Good Afternoon.";
-  return "Good Evening.";
+  return "Welcome Back";
 }
 
 function collectAllKeys() {
@@ -113,8 +110,7 @@ function countStats(values, layout) {
   const active = toggleKeys.filter((p) => isOn(values[p])).length;
   const roomCount =
     layout.switchRooms.length + layout.motorRooms.length + layout.alarmRooms.length;
-  const channelCount = allControlPaths().length;
-  return { total, active, roomCount, channelCount };
+  return { total, active, roomCount };
 }
 
 function roomActiveCount(room, values) {
@@ -351,7 +347,7 @@ function renderRoomDetail(state) {
 
   return `
     <section class="room-detail">
-      <button type="button" class="back-link" data-action="go-overview">← Control Center</button>
+      <button type="button" class="back-link" data-action="go-overview">← My Home</button>
       <div class="room-detail__head">
         <div>
           <span class="room-detail__type">${typeLabel}</span>
@@ -398,8 +394,8 @@ function renderOverview(state) {
   return `
     <header class="topbar">
       <div class="topbar__left">
-        <p class="brand"><span class="brand__lumina">LUMINA</span><span class="brand__slash">/os</span></p>
-        <span class="topbar__label">Home Sync</span>
+        <p class="brand"><span class="brand__lumina">Smart Living Control</span></p>
+        <span class="topbar__label">Personalized Home Center</span>
       </div>
       <div class="topbar__chips">
         <span class="chip ${statusClass}"><span class="chip__dot"></span>${escapeHtml(statusLabel)}</span>
@@ -446,12 +442,7 @@ function renderOverview(state) {
       <div class="zone-grid">${renderRoomCards(layout.alarmRooms, "alarm", values)}</div>
     </section>
 
-    <footer class="hw-bar">
-      <div class="hw-item"><span class="hw-item__k">Hardware</span><span class="hw-item__v">ESP32</span></div>
-      <div class="hw-item"><span class="hw-item__k">Signal</span><span class="hw-item__v">${connected ? "Live" : "—"}</span></div>
-      <div class="hw-item"><span class="hw-item__k">Backend</span><span class="hw-item__v">Firebase</span></div>
-      <div class="hw-item"><span class="hw-item__k">Channels</span><span class="hw-item__v">${stats.channelCount}</span></div>
-    </footer>`;
+    `;
 }
 
 function devField(id, label, value, type = "text") {
@@ -468,7 +459,7 @@ function renderDeveloper(state) {
   return `
     <header class="topbar">
       <div class="topbar__left">
-        <p class="brand"><span class="brand__lumina">LUMINA</span><span class="brand__slash">/os</span></p>
+        <p class="brand"><span class="brand__lumina">Smart Living Control</span></p>
         <span class="topbar__label">Developer options</span>
       </div>
     </header>
@@ -537,10 +528,10 @@ function renderShell(state) {
   return `
     <div class="shell">
       <aside class="sidebar">
-        <p class="brand"><span class="brand__lumina">LUMINA</span><span class="brand__slash">/os</span></p>
-        <p class="brand-sub">Residential Control</p>
+        <p class="brand"><span class="brand__lumina">Smart Living Control</span></p>
+        <p class="brand-sub">Personalized Home Control</p>
         <nav class="sidebar-nav">
-          <button type="button" class="sidebar-nav__item ${state.ui.view === "overview" || state.ui.view === "room" ? "sidebar-nav__item--active" : ""}" data-action="go-overview">Home Center</button>
+          <button type="button" class="sidebar-nav__item ${state.ui.view === "overview" || state.ui.view === "room" ? "sidebar-nav__item--active" : ""}" data-action="go-overview">My Home</button>
           <button type="button" class="sidebar-nav__item ${state.ui.view === "developer" ? "sidebar-nav__item--active" : ""}" data-action="go-developer">Developer</button>
         </nav>
       </aside>

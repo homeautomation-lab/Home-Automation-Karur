@@ -154,8 +154,7 @@ body {
   display: block;
   font-size: 0.72rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   margin-top: 0.35rem;
 }
 
@@ -1055,29 +1054,6 @@ body {
   margin-bottom: 1rem;
 }
 
-/* HW bar */
-.hw-bar {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
-  margin-top: 1rem;
-}
-
-.hw-item__k {
-  display: block;
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-}
-
-.hw-item__v {
-  font-family: var(--mono);
-  font-size: 0.8rem;
-}
-
 @media (max-width: 768px) {
   .shell {
     flex-direction: column;
@@ -1097,7 +1073,4 @@ body {
     gap: 1.25rem;
   }
 
-  .hw-bar {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
