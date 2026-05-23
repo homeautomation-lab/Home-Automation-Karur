@@ -461,7 +461,7 @@ function renderMenuDrawer(state) {
 }
 
 function renderOverview(state) {
-  const { values, layout } = state;
+  const { values, layout, connected } = state;
   const stats = countStats(values, layout);
 
   const eventText = scheduleSummary(values);
