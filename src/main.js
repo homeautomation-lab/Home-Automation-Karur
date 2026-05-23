@@ -271,7 +271,7 @@ function renderAddDeviceModal(state, roomType, roomId) {
         <header class="modal__head"><h2>Add device</h2>
           <button type="button" class="modal__close" data-action="close-modal">×</button>
         </header>
-        <p class="modal__hint">${roomType === "switch" ? "Switches include ON/OFF schedule paths (SWn-ON_TIMING / SWn-OFF_TIMING). Tap a switch name in the room to rename it." : roomType === "motor" ? "Motors use a hold-to-run push button (Mn-PUSH) plus ON/OFF schedules." : "Alarms use a hold-to-run push button (ALRMn-PUSH)."}</p>
+        <p class="modal__hint">${roomType === "switch" ? "Switches include ON/OFF schedule paths (SWn-ON_TIMING / SWn-OFF_TIMING). Tap a switch name in the room to rename it." : roomType === "motor" ? "Motors use a momentary PUSH button (Mn-PUSH) plus ON/OFF schedules." : "Alarms use a momentary PUSH button (ALRMn-PUSH)."}</p>
         <select class="field-input" id="add-device-key" data-draft="addDeviceKey">${opts}</select>
         <footer class="modal__foot">
           <button type="button" class="btn-ghost" data-action="close-modal">Cancel</button>
@@ -295,8 +295,10 @@ function renderPushButton(meta, device) {
   return `
     <button type="button" class="push-btn" data-action="push-hold"
       data-group="${escapeHtml(meta?.root ?? "")}" data-key="${escapeHtml(pushKey)}"
-      aria-label="Hold ${escapeHtml(device.label)}">
-      <span class="push-btn__label">Hold</span>
+      aria-label="Push ${escapeHtml(device.label)}">
+      <span class="push-btn__bezel" aria-hidden="true">
+        <span class="push-btn__cap">PUSH</span>
+      </span>
     </button>`;
 }
 
