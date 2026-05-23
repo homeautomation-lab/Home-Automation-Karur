@@ -668,6 +668,36 @@ async function ensureRoomPushKeys(db, layout, roomType, roomId, values) {
   }
 }
 
+let audioCtx = null;
+function playClickSound() {
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume();
+    }
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    const now = audioCtx.currentTime;
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1200, now);
+    osc.frequency.exponentialRampToValueAtTime(120, now + 0.06);
+    
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+    
+    osc.start(now);
+    osc.stop(now + 0.06);
+  } catch (e) {
+    console.warn("Audio playback failed", e);
+  }
+}
+
 function mountApp(db) {
   const root = document.getElementById("app");
   const state = {
@@ -962,6 +992,7 @@ function mountApp(db) {
   root.addEventListener("pointerdown", async (e) => {
     const btn = e.target.closest("[data-action='push-hold']");
     if (!btn) return;
+    playClickSound();
     e.preventDefault();
     pushActiveBtn = btn;
     btn.setPointerCapture(e.pointerId);
@@ -996,6 +1027,7 @@ function mountApp(db) {
   root.addEventListener("click", async (e) => {
     const el = e.target.closest("[data-action]");
     if (!el) return;
+    playClickSound();
     const action = el.dataset.action;
 
     if (action === "backdrop-close") {
