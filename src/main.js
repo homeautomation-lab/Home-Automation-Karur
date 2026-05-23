@@ -23,6 +23,8 @@ import {
   metaForKey,
   timingPathsFor,
   hasBuiltInSchedule,
+  isPushRoomType,
+  pushKeyFor,
 } from "./firebase-catalog.js";
 import {
   defaultLayout,
@@ -77,7 +79,10 @@ function escapeHtml(s) {
 }
 
 function greeting() {
-  return "Welcome Back";
+  const h = new Date().getHours();
+  if (h < 12) return "Good Morning.";
+  if (h < 17) return "Good Afternoon.";
+  return "Good Evening.";
 }
 
 function collectAllKeys() {
@@ -110,7 +115,8 @@ function countStats(values, layout) {
   const active = toggleKeys.filter((p) => isOn(values[p])).length;
   const roomCount =
     layout.switchRooms.length + layout.motorRooms.length + layout.alarmRooms.length;
-  return { total, active, roomCount };
+  const channelCount = allControlPaths().length;
+  return { total, active, roomCount, channelCount };
 }
 
 function roomActiveCount(room, values) {
@@ -125,7 +131,7 @@ function renderSetupScreen() {
   return `
     <div class="shell shell--setup shell--dev-only">
       <main class="setup-card setup-card--wide">
-        <p class="brand"><span class="brand__lumina">ASWIN GAY </span><span class="brand__slash">/OS</span></p>
+        <p class="brand"><span class="brand__lumina">Lumina</span><span class="brand__slash">/OS</span></p>
         <h1>Connect Firebase</h1>
         <p>Add credentials below (saved in this browser), then <strong>Save & reload</strong>.</p>
       </main>
@@ -265,7 +271,7 @@ function renderAddDeviceModal(state, roomType, roomId) {
         <header class="modal__head"><h2>Add device</h2>
           <button type="button" class="modal__close" data-action="close-modal">×</button>
         </header>
-        <p class="modal__hint">Switches & motors include ON/OFF schedule paths automatically (${roomType === "switch" ? "SWn-ON_TIMING / SWn-OFF_TIMING" : roomType === "motor" ? "Mn-ON_TIMING / Mn-OFF_TIMING" : ""}).</p>
+        <p class="modal__hint">${roomType === "switch" ? "Switches include ON/OFF schedule paths (SWn-ON_TIMING / SWn-OFF_TIMING). Tap a switch name in the room to rename it." : roomType === "motor" ? "Motors use a hold-to-run push button (Mn-PUSH) plus ON/OFF schedules." : "Alarms use a hold-to-run push button (ALRMn-PUSH)."}</p>
         <select class="field-input" id="add-device-key" data-draft="addDeviceKey">${opts}</select>
         <footer class="modal__foot">
           <button type="button" class="btn-ghost" data-action="close-modal">Cancel</button>
@@ -274,6 +280,24 @@ function renderAddDeviceModal(state, roomType, roomId) {
       </div>
     </div>
   `;
+}
+
+function renderPillToggle(meta, device, on) {
+  return `
+    <button type="button" class="pill-switch ${on ? "pill-switch--on" : ""}" data-action="toggle"
+      data-group="${escapeHtml(meta?.root ?? "")}" data-key="${escapeHtml(device.firebaseKey)}">
+      <span class="pill-switch__knob"></span>
+    </button>`;
+}
+
+function renderPushButton(meta, device) {
+  const pushKey = pushKeyFor(device.firebaseKey);
+  return `
+    <button type="button" class="push-btn" data-action="push-hold"
+      data-group="${escapeHtml(meta?.root ?? "")}" data-key="${escapeHtml(pushKey)}"
+      aria-label="Hold ${escapeHtml(device.label)}">
+      <span class="push-btn__label">Hold</span>
+    </button>`;
 }
 
 function renderScheduleBtn({ timingKey, kind, label, values, root }) {
@@ -288,14 +312,26 @@ function renderScheduleBtn({ timingKey, kind, label, values, root }) {
     </button>`;
 }
 
+function renameHintFor(roomType) {
+  if (roomType === "switch") return "Tap name to rename switch";
+  if (roomType === "motor") return "Tap name to rename";
+  return "Tap name to rename alarm";
+}
+
 function renderDeviceRow(device, room, values, roomType) {
   const path = devicePath(device.firebaseKey);
   const raw = path ? values[path] : "";
   const meta = metaForKey(device.firebaseKey);
-  const on = isOn(raw);
+  const usePush = isPushRoomType(roomType);
+  const pushPath = usePush && meta ? refPath(meta.root, pushKeyFor(device.firebaseKey)) : "";
+  const pushOn = pushPath ? isOn(values[pushPath]) : false;
+  const on = usePush ? pushOn : isOn(raw);
   const schedules = hasBuiltInSchedule(device.kind)
     ? timingPathsFor(device.firebaseKey)
     : null;
+  const control = usePush
+    ? renderPushButton(meta, device)
+    : renderPillToggle(meta, device, on);
 
   const scheduleRow = schedules
     ? `<div class="schedule-pair">
@@ -316,19 +352,19 @@ function renderDeviceRow(device, room, values, roomType) {
       </div>`
     : "";
 
+  const pushHint = usePush ? ` · ${pushKeyFor(device.firebaseKey)}` : "";
+  const blockClass = on ? (usePush ? "device-block--push" : "device-block--on") : "";
+
   return `
-    <div class="device-block ${on ? "device-block--on" : ""}">
+    <div class="device-block ${blockClass}">
       <div class="device-row-wrap">
         <div class="device-row">
-          <button type="button" class="device-row__edit" data-action="edit-label" data-key="${escapeHtml(device.firebaseKey)}" title="Rename">
+          <button type="button" class="device-row__edit" data-action="edit-label" data-key="${escapeHtml(device.firebaseKey)}" title="${escapeHtml(renameHintFor(roomType))}">
             <span class="device-row__title">${escapeHtml(device.label)}</span>
             <span class="device-row__meta">${escapeHtml(room.name)}</span>
-            <span class="device-row__hint">${escapeHtml(device.firebaseKey)}${schedules ? " · + ON/OFF timing" : ""}</span>
+            <span class="device-row__hint">${escapeHtml(renameHintFor(roomType))} · <code>${escapeHtml(device.firebaseKey)}</code>${pushHint}${schedules ? " · ON/OFF timing" : ""}</span>
           </button>
-          <button type="button" class="pill-switch ${on ? "pill-switch--on" : ""}" data-action="toggle"
-            data-group="${escapeHtml(meta?.root ?? "")}" data-key="${escapeHtml(device.firebaseKey)}">
-            <span class="pill-switch__knob"></span>
-          </button>
+          ${control}
         </div>
         <button type="button" class="icon-btn" title="Remove from room" data-action="remove-device" data-key="${escapeHtml(device.firebaseKey)}">−</button>
       </div>
@@ -383,29 +419,57 @@ function renderRoomCards(rooms, roomType, values) {
     .join("");
 }
 
-function renderOverview(state) {
+function renderStatusChips(state) {
   const { values, layout, connected, error } = state;
   const stats = countStats(values, layout);
   const statusLabel = error ? "Error" : connected ? "System Online" : "Connecting…";
   const statusClass = error ? "status--error" : connected ? "status--ok" : "status--warn";
+  return `
+    <div class="topbar__chips">
+      <span class="chip ${statusClass}"><span class="chip__dot"></span>${escapeHtml(statusLabel)}</span>
+      <span class="chip chip--muted">${stats.active}/${stats.total} active</span>
+    </div>`;
+}
+
+function renderAppBar(state) {
+  const end =
+    state.ui.view === "overview" || state.ui.view === "room" ? renderStatusChips(state) : "";
+  return `
+    <header class="app-bar">
+      <button type="button" class="menu-btn" data-action="toggle-menu"
+        aria-label="${state.ui.menuOpen ? "Close menu" : "Open menu"}"
+        aria-expanded="${state.ui.menuOpen ? "true" : "false"}">
+        <span class="menu-btn__line" aria-hidden="true"></span>
+        <span class="menu-btn__line" aria-hidden="true"></span>
+        <span class="menu-btn__line" aria-hidden="true"></span>
+      </button>
+      <div class="app-bar__end">${end}</div>
+    </header>`;
+}
+
+function renderMenuDrawer(state) {
+  const homeActive = state.ui.view === "overview" || state.ui.view === "room";
+  const devActive = state.ui.view === "developer";
+  return `
+    <div class="menu-backdrop ${state.ui.menuOpen ? "menu-backdrop--open" : ""}" data-action="close-menu" aria-hidden="${state.ui.menuOpen ? "false" : "true"}"></div>
+    <aside class="menu-drawer ${state.ui.menuOpen ? "menu-drawer--open" : ""}" role="navigation" aria-label="Main menu" aria-hidden="${state.ui.menuOpen ? "false" : "true"}">
+      <nav class="menu-drawer__nav">
+        <button type="button" class="menu-drawer__item ${homeActive ? "menu-drawer__item--active" : ""}" data-action="go-overview">My Home</button>
+        <button type="button" class="menu-drawer__item ${devActive ? "menu-drawer__item--active" : ""}" data-action="go-developer">Developer</button>
+      </nav>
+    </aside>`;
+}
+
+function renderOverview(state) {
+  const { values, layout } = state;
+  const stats = countStats(values, layout);
 
   const eventText = scheduleSummary(values);
 
   return `
-    <header class="topbar">
-      <div class="topbar__left">
-        <p class="brand"><span class="brand__lumina">Smart Living Control</span></p>
-        <span class="topbar__label">Personalized Home Center</span>
-      </div>
-      <div class="topbar__chips">
-        <span class="chip ${statusClass}"><span class="chip__dot"></span>${escapeHtml(statusLabel)}</span>
-        <span class="chip chip--muted">${stats.active}/${stats.total} active</span>
-      </div>
-    </header>
-
     <section class="hero">
       <h1 class="hero__title">${greeting()}</h1>
-      <p class="hero__sub">Your connected home, simplified. ${stats.roomCount} rooms · ${countsLabel()}.</p>
+      <p class="hero__sub">System synchronized. ${stats.roomCount} rooms · ${countsLabel()}.</p>
       <div class="hero__stats">
         <div><span class="hero__stat-k">Active</span><span class="hero__stat-v">${stats.active}/${stats.total}</span></div>
         <div><span class="hero__stat-k">Motors</span><span class="hero__stat-v">${layout.motorRooms.length}</span></div>
@@ -442,7 +506,12 @@ function renderOverview(state) {
       <div class="zone-grid">${renderRoomCards(layout.alarmRooms, "alarm", values)}</div>
     </section>
 
-    `;
+    <footer class="hw-bar">
+      <div class="hw-item"><span class="hw-item__k">Hardware</span><span class="hw-item__v">ESP32</span></div>
+      <div class="hw-item"><span class="hw-item__k">Signal</span><span class="hw-item__v">${connected ? "Live" : "—"}</span></div>
+      <div class="hw-item"><span class="hw-item__k">Backend</span><span class="hw-item__v">Firebase</span></div>
+      <div class="hw-item"><span class="hw-item__k">Channels</span><span class="hw-item__v">${stats.channelCount}</span></div>
+    </footer>`;
 }
 
 function devField(id, label, value, type = "text") {
@@ -457,12 +526,6 @@ function renderDeveloper(state) {
   const d = state.devDraft || loadDevSettings();
   const P = getPATHS();
   return `
-    <header class="topbar">
-      <div class="topbar__left">
-        <p class="brand"><span class="brand__lumina">Smart Living Control</span></p>
-        <span class="topbar__label">Developer options</span>
-      </div>
-    </header>
     <p class="dev-intro">Credentials and Firebase paths are stored in this browser. After saving, the page reloads to connect with new settings.</p>
 
     <section class="dev-panel">
@@ -498,7 +561,7 @@ function renderDeveloper(state) {
     </section>
 
     <footer class="dev-actions">
-      ${configReady() ? '<button type="button" class="btn-ghost" data-action="go-overview">← Back</button>' : ""}
+      ${configReady() ? '<button type="button" class="btn-ghost" data-action="go-overview">← My Home</button>' : ""}
       <button type="button" class="btn-ghost" data-action="reset-dev-config">Reset defaults</button>
       <button type="button" class="btn-primary" data-action="save-dev-config">Save & reload</button>
     </footer>`;
@@ -526,15 +589,9 @@ function renderShell(state) {
         : renderOverview(state);
 
   return `
-    <div class="shell">
-      <aside class="sidebar">
-        <p class="brand"><span class="brand__lumina">Smart Living Control</span></p>
-        <p class="brand-sub">Personalized Home Control</p>
-        <nav class="sidebar-nav">
-          <button type="button" class="sidebar-nav__item ${state.ui.view === "overview" || state.ui.view === "room" ? "sidebar-nav__item--active" : ""}" data-action="go-overview">My Home</button>
-          <button type="button" class="sidebar-nav__item ${state.ui.view === "developer" ? "sidebar-nav__item--active" : ""}" data-action="go-developer">Developer</button>
-        </nav>
-      </aside>
+    ${renderMenuDrawer(state)}
+    <div class="shell ${state.ui.menuOpen ? "shell--menu-open" : ""}">
+      ${renderAppBar(state)}
       <main class="main">
         ${state.layoutSync === "saving" ? '<p class="sync-banner sync-banner--saving">Saving layout to Firebase…</p>' : ""}
         ${state.layoutSync === "saved" ? '<p class="sync-banner sync-banner--saved">Layout saved permanently</p>' : ""}
@@ -560,6 +617,26 @@ function closeModal(state) {
   state.ui.draft = {};
 }
 
+async function ensurePushKey(db, baseKey, values) {
+  const meta = metaForKey(baseKey);
+  if (!meta) return;
+  const key = pushKeyFor(baseKey);
+  const path = refPath(meta.root, key);
+  if (values[path] === undefined) {
+    await set(ref(db, path), "0");
+    values[path] = "0";
+  }
+}
+
+async function ensureRoomPushKeys(db, layout, roomType, roomId, values) {
+  if (!isPushRoomType(roomType)) return;
+  const room = findRoom(layout, roomType, roomId);
+  if (!room) return;
+  for (const d of room.devices) {
+    await ensurePushKey(db, d.firebaseKey, values);
+  }
+}
+
 function mountApp(db) {
   const root = document.getElementById("app");
   const state = {
@@ -578,6 +655,8 @@ function mountApp(db) {
       addRoomType: "switch",
       timeModal: null,
       draft: {},
+      pushHeld: new Set(),
+      menuOpen: false,
     },
   };
 
@@ -586,6 +665,7 @@ function mountApp(db) {
   let paintQueued = false;
   let interacting = false;
   let ignoreLayoutRemoteUntil = 0;
+  let pushActiveBtn = null;
 
   function ensureDom() {
     if (shellEl?.isConnected && modalEl?.isConnected) return;
@@ -714,8 +794,38 @@ function mountApp(db) {
       const path = refPath(btn.dataset.group, btn.dataset.key);
       const on = isOn(state.values[path]);
       btn.classList.toggle("pill-switch--on", on);
+      btn.closest(".device-block")?.classList.toggle("device-block--on", on);
       btn.closest(".device-row-wrap")?.classList.toggle("device-row-wrap--on", on);
     });
+    shellEl.querySelectorAll("[data-action='push-hold']").forEach((btn) => {
+      const path = refPath(btn.dataset.group, btn.dataset.key);
+      const on = state.ui.pushHeld.has(path) || isOn(state.values[path]);
+      btn.closest(".device-block")?.classList.toggle("device-block--push", on);
+    });
+  }
+
+  async function setPushActive(btn, active) {
+    if (!btn) return;
+    const path = refPath(btn.dataset.group, btn.dataset.key);
+    btn.closest(".device-block")?.classList.toggle("device-block--push", active);
+    if (active) state.ui.pushHeld.add(path);
+    else state.ui.pushHeld.delete(path);
+    try {
+      await set(ref(db, path), active ? "1" : "0");
+    } catch (err) {
+      state.error = err.message;
+      paintNow();
+    }
+  }
+
+  async function releasePush(e) {
+    if (!pushActiveBtn) return;
+    const btn = pushActiveBtn;
+    if (e?.pointerId != null && btn.hasPointerCapture?.(e.pointerId)) {
+      btn.releasePointerCapture(e.pointerId);
+    }
+    pushActiveBtn = null;
+    await setPushActive(btn, false);
   }
 
   function syncDraftFromModal() {
@@ -803,6 +913,23 @@ function mountApp(db) {
     );
   }
 
+  root.addEventListener("pointerdown", async (e) => {
+    const btn = e.target.closest("[data-action='push-hold']");
+    if (!btn) return;
+    e.preventDefault();
+    pushActiveBtn = btn;
+    btn.setPointerCapture(e.pointerId);
+    await setPushActive(btn, true);
+  });
+
+  root.addEventListener("pointerup", (e) => {
+    void releasePush(e);
+  });
+
+  root.addEventListener("pointercancel", (e) => {
+    void releasePush(e);
+  });
+
   root.addEventListener("input", (e) => {
     const draftKey = e.target.dataset?.draft;
     if (draftKey && state.ui.draft) {
@@ -827,8 +954,21 @@ function mountApp(db) {
       return;
     }
 
+    if (action === "toggle-menu") {
+      state.ui.menuOpen = !state.ui.menuOpen;
+      paintNow();
+      return;
+    }
+
+    if (action === "close-menu") {
+      state.ui.menuOpen = false;
+      paintNow();
+      return;
+    }
+
     if (action === "go-overview") {
       state.ui.view = "overview";
+      state.ui.menuOpen = false;
       closeModal(state);
       paintNow();
       return;
@@ -836,6 +976,7 @@ function mountApp(db) {
 
     if (action === "go-developer") {
       state.ui.view = "developer";
+      state.ui.menuOpen = false;
       state.devDraft = loadDevSettings();
       closeModal(state);
       paintNow();
@@ -862,6 +1003,9 @@ function mountApp(db) {
       state.ui.roomId = el.dataset.roomId;
       closeModal(state);
       paintNow();
+      if (isPushRoomType(state.ui.roomType)) {
+        void ensureRoomPushKeys(db, state.layout, state.ui.roomType, state.ui.roomId, state.values);
+      }
       return;
     }
 
@@ -918,7 +1062,15 @@ function mountApp(db) {
       e.preventDefault();
       syncDraftFromModal();
       const key = state.ui.draft.addDeviceKey;
-      if (key) addDeviceToRoom(state.layout, state.ui.roomType, state.ui.roomId, key);
+      if (key && addDeviceToRoom(state.layout, state.ui.roomType, state.ui.roomId, key)) {
+        if (isPushRoomType(state.ui.roomType)) {
+          try {
+            await ensurePushKey(db, key, state.values);
+          } catch (err) {
+            state.error = err.message;
+          }
+        }
+      }
       closeModal(state);
       paintNow();
       return;
@@ -946,7 +1098,13 @@ function mountApp(db) {
       const key = el.dataset.key;
       const room = findRoom(state.layout, state.ui.roomType, state.ui.roomId);
       const dev = room?.devices.find((d) => d.firebaseKey === key);
-      const name = prompt("Device display name", dev?.label ?? key);
+      const title =
+        state.ui.roomType === "switch"
+          ? "Switch display name"
+          : state.ui.roomType === "motor"
+            ? "Motor display name"
+            : "Alarm display name";
+      const name = prompt(title, dev?.label ?? key);
       interacting = false;
       if (name != null) renameDevice(state.layout, state.ui.roomType, state.ui.roomId, key, name);
       paintNow();

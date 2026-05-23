@@ -41,7 +41,11 @@ function normalizeRoom(room) {
 }
 
 function isStandaloneTimingKey(firebaseKey) {
-  return firebaseKey.endsWith("-ON_TIMING") || firebaseKey.endsWith("-OFF_TIMING");
+  return (
+    firebaseKey.endsWith("-ON_TIMING") ||
+    firebaseKey.endsWith("-OFF_TIMING") ||
+    firebaseKey.endsWith("-PUSH")
+  );
 }
 
 function inferKind(firebaseKey) {

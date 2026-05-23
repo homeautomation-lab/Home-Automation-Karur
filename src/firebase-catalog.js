@@ -26,9 +26,10 @@ function buildSwitchCatalog() {
 
 function buildMotorCatalog() {
   const { motors, meta } = getPATHS();
-  const { root, toggles, timings } = motors;
+  const { root, toggles, timings, pushes } = motors;
   return [
     ...toggles.map((key) => entry(root, key, "motor", key)),
+    ...pushes.map((key) => entry(root, key, "motor-push", key)),
     ...timings
       .map((key) => {
         const kind = timingKindForKey(key, meta.onTimingSuffix, meta.offTimingSuffix);
@@ -39,8 +40,12 @@ function buildMotorCatalog() {
 }
 
 function buildAlarmCatalog() {
-  const { root, toggles } = getPATHS().alarms;
-  return toggles.map((key) => entry(root, key, "alarm", key));
+  const { alarms } = getPATHS();
+  const { root, toggles, pushes } = alarms;
+  return [
+    ...toggles.map((key) => entry(root, key, "alarm", key)),
+    ...pushes.map((key) => entry(root, key, "alarm-push", key)),
+  ];
 }
 
 let catalogCache = null;
@@ -94,4 +99,16 @@ export function metaForKey(firebaseKey) {
 
 export function isTimingKind(kind) {
   return kind === "timing-on" || kind === "timing-off";
+}
+
+export function isPushKind(kind) {
+  return kind === "motor-push" || kind === "alarm-push";
+}
+
+export function isPushRoomType(roomType) {
+  return roomType === "motor" || roomType === "alarm";
+}
+
+export function pushKeyFor(baseKey) {
+  return `${baseKey}${getPATHS().meta.pushSuffix}`;
 }

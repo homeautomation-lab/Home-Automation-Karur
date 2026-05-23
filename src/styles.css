@@ -66,7 +66,12 @@ body {
 /* Shell */
 .shell {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
+}
+
+.shell--menu-open {
+  overflow: hidden;
 }
 
 .shell--setup {
@@ -104,32 +109,111 @@ body {
   color: var(--text-muted);
 }
 
-/* Sidebar */
-.sidebar {
-  width: var(--sidebar-w);
-  flex-shrink: 0;
-  padding: 1.5rem 1rem;
-  border-right: 1px solid var(--border);
+/* App bar & hamburger menu */
+.app-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.75rem;
+  border-bottom: 1px solid var(--border);
   background: var(--bg);
+  flex-shrink: 0;
 }
 
-.sidebar-nav__item {
+.app-bar__end {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.menu-btn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.menu-btn:hover {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: var(--bg-card-hover);
+}
+
+.menu-btn__line {
+  display: block;
+  width: 18px;
+  height: 2px;
+  margin: 0 auto;
+  border-radius: 1px;
+  background: var(--cream);
+}
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.menu-backdrop--open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.menu-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 160;
+  width: var(--sidebar-w);
+  max-width: 85vw;
+  height: 100vh;
+  padding: 4.5rem 1rem 1.5rem;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  transform: translateX(-100%);
+  transition: transform 0.22s ease;
+  pointer-events: none;
+}
+
+.menu-drawer--open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.menu-drawer__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.menu-drawer__item {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 0.55rem 0.75rem;
-  margin-top: 1.5rem;
+  padding: 0.75rem 0.85rem;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   cursor: pointer;
 }
 
-.sidebar-nav__item--active,
-.sidebar-nav__item:hover {
+.menu-drawer__item:hover,
+.menu-drawer__item--active {
   background: var(--bg-card);
   color: var(--text);
 }
@@ -139,23 +223,9 @@ body {
   flex: 1;
   min-width: 0;
   padding: 1.25rem 1.75rem 2.5rem;
+  width: 100%;
   max-width: 960px;
-}
-
-.topbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.topbar__label {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  letter-spacing: 0;
-  margin-top: 0.35rem;
+  margin: 0 auto;
 }
 
 .topbar__chips {
@@ -596,6 +666,12 @@ body {
   border-color: rgba(74, 222, 128, 0.3);
 }
 
+.device-block--push .device-row {
+  border-color: rgba(74, 222, 128, 0.55);
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+  background: rgba(74, 222, 128, 0.08);
+}
+
 .device-row-wrap--on .device-row {
   border-color: rgba(74, 222, 128, 0.3);
 }
@@ -760,6 +836,34 @@ body {
 .pill-switch--on .pill-switch__knob {
   transform: translateX(20px);
   background: var(--green);
+}
+
+.push-btn {
+  flex-shrink: 0;
+  min-width: 72px;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--cream);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.push-btn:active,
+.device-block--push .push-btn {
+  border-color: rgba(74, 222, 128, 0.6);
+  background: var(--green-dim);
+  color: var(--green);
+}
+
+.push-btn__label {
+  pointer-events: none;
 }
 
 /* Modal */
@@ -1055,14 +1159,8 @@ body {
 }
 
 @media (max-width: 768px) {
-  .shell {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
+  .app-bar {
+    padding: 0.65rem 1rem;
   }
 
   .main {
@@ -1072,5 +1170,4 @@ body {
   .hero__stats {
     gap: 1.25rem;
   }
-
 }

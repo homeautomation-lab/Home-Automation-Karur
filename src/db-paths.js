@@ -11,6 +11,7 @@ export const DEFAULT_PATH_SETTINGS = {
   alarmPrefix: "ALRM",
   onTimingSuffix: "-ON_TIMING",
   offTimingSuffix: "-OFF_TIMING",
+  pushSuffix: "-PUSH",
 };
 
 function numList(prefix, count) {
@@ -23,6 +24,10 @@ function timingKeys(prefix, count, onSuffix, offSuffix) {
     keys.push(`${prefix}${i}${onSuffix}`, `${prefix}${i}${offSuffix}`);
   }
   return keys;
+}
+
+function pushKeys(prefix, count, pushSuffix) {
+  return Array.from({ length: count }, (_, i) => `${prefix}${i + 1}${pushSuffix}`);
 }
 
 export function buildPaths(cfg) {
@@ -40,10 +45,12 @@ export function buildPaths(cfg) {
       root: c.motorRoot,
       toggles: numList(c.motorPrefix, mo),
       timings: timingKeys(c.motorPrefix, mo, c.onTimingSuffix, c.offTimingSuffix),
+      pushes: pushKeys(c.motorPrefix, mo, c.pushSuffix),
     },
     alarms: {
       root: c.alarmRoot,
       toggles: numList(c.alarmPrefix, al),
+      pushes: pushKeys(c.alarmPrefix, al, c.pushSuffix),
     },
     meta: {
       switchCount: sw,
@@ -51,6 +58,7 @@ export function buildPaths(cfg) {
       alarmCount: al,
       onTimingSuffix: c.onTimingSuffix,
       offTimingSuffix: c.offTimingSuffix,
+      pushSuffix: c.pushSuffix,
     },
   };
 }
@@ -80,7 +88,9 @@ export function allControlPaths() {
   for (const k of P.switches.timings) paths.push(refPath(P.switches.root, k));
   for (const k of P.motors.toggles) paths.push(refPath(P.motors.root, k));
   for (const k of P.motors.timings) paths.push(refPath(P.motors.root, k));
+  for (const k of P.motors.pushes) paths.push(refPath(P.motors.root, k));
   for (const k of P.alarms.toggles) paths.push(refPath(P.alarms.root, k));
+  for (const k of P.alarms.pushes) paths.push(refPath(P.alarms.root, k));
   return paths;
 }
 

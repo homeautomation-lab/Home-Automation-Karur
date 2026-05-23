@@ -87,6 +87,7 @@ export function saveDevSettings({ firebase, paths }) {
       alarmPrefix: String(paths.alarmPrefix || "ALRM").trim(),
       onTimingSuffix: String(paths.onTimingSuffix || "-ON_TIMING").trim(),
       offTimingSuffix: String(paths.offTimingSuffix || "-OFF_TIMING").trim(),
+      pushSuffix: String(paths.pushSuffix || "-PUSH").trim(),
     },
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
