@@ -272,6 +272,24 @@ body {
   margin-bottom: 1.25rem;
 }
 
+.hero-brand {
+  margin-bottom: 1.25rem;
+}
+
+.hero-brand__title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--cream);
+}
+
+.hero-brand__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 .hero__title {
   margin: 0;
   font-family: var(--serif);

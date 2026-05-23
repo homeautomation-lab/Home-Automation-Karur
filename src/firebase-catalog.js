@@ -98,7 +98,7 @@ export function catalogForType(roomType) {
 export function addableCatalog(roomType) {
   if (roomType === "switch") return catalogForType("switch").filter((d) => d.kind === "switch");
   if (roomType === "motor") return catalogForType("motor").filter((d) => d.kind === "motor");
-  return catalogForType("alarm");
+  return catalogForType("alarm").filter((d) => d.kind === "alarm");
 }
 
 export function timingPathsFor(baseKey) {

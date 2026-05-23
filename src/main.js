@@ -82,10 +82,7 @@ function escapeHtml(s) {
 }
 
 function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good Morning.";
-  if (h < 17) return "Good Afternoon.";
-  return "Good Evening.";
+  return "Welcome Back!";
 }
 
 function collectAllKeys() {
@@ -118,8 +115,7 @@ function countStats(values, layout) {
   const active = toggleKeys.filter((p) => isOn(values[p])).length;
   const roomCount =
     layout.switchRooms.length + layout.motorRooms.length + layout.alarmRooms.length;
-  const channelCount = allControlPaths().length;
-  return { total, active, roomCount, channelCount };
+  return { total, active, roomCount };
 }
 
 function roomActiveCount(room, values) {
@@ -267,7 +263,8 @@ function renderAddDeviceModal(state, roomType, roomId) {
   const opts = avail
     .map((d) => {
       const sel = d.key === selected ? " selected" : "";
-      return `<option value="${escapeHtml(d.key)}"${sel}>${escapeHtml(d.defaultLabel)} (${escapeHtml(d.key)})</option>`;
+      const label = roomType === "alarm" ? d.defaultLabel : `${d.defaultLabel} (${d.key})`;
+      return `<option value="${escapeHtml(d.key)}"${sel}>${escapeHtml(label)}</option>`;
     })
     .join("");
   const controlChoice = showControlChoice
@@ -504,6 +501,10 @@ function renderOverview(state) {
 
   return `
     <section class="hero">
+      <div class="hero-brand">
+        <p class="hero-brand__title">Smart Living Control</p>
+        <p class="hero-brand__sub">Personalized Home Control</p>
+      </div>
       <h1 class="hero__title">${greeting()}</h1>
       <p class="hero__sub">System synchronized. ${stats.roomCount} rooms · ${countsLabel()}.</p>
       <div class="hero__stats">
@@ -520,7 +521,7 @@ function renderOverview(state) {
 
     <section class="section-block">
       <div class="section-head">
-        <h2>Switch rooms <span class="section-head__count">${layout.switchRooms.length}/${MAX_ROOMS_PER_TYPE}</span></h2>
+        <h2>Control Zones</h2>
         <button type="button" class="btn-text" data-action="open-add-room" data-room-type="switch" ${canAddRoom(layout, "switch") ? "" : "disabled"}>+ Add room</button>
       </div>
       <div class="zone-grid">${renderRoomCards(layout.switchRooms, "switch", values)}</div>
@@ -528,7 +529,7 @@ function renderOverview(state) {
 
     <section class="section-block">
       <div class="section-head">
-        <h2>Motor rooms <span class="section-head__count">${layout.motorRooms.length}/${MAX_ROOMS_PER_TYPE}</span></h2>
+        <h2>Pump Control</h2>
         <button type="button" class="btn-text" data-action="open-add-room" data-room-type="motor" ${canAddRoom(layout, "motor") ? "" : "disabled"}>+ Add room</button>
       </div>
       <div class="zone-grid">${renderRoomCards(layout.motorRooms, "motor", values)}</div>
@@ -536,18 +537,13 @@ function renderOverview(state) {
 
     <section class="section-block">
       <div class="section-head">
-        <h2>Alarm zones <span class="section-head__count">${layout.alarmRooms.length}/${MAX_ROOMS_PER_TYPE}</span></h2>
+        <h2>Alert Zones</h2>
         <button type="button" class="btn-text" data-action="open-add-room" data-room-type="alarm" ${canAddRoom(layout, "alarm") ? "" : "disabled"}>+ Add room</button>
       </div>
       <div class="zone-grid">${renderRoomCards(layout.alarmRooms, "alarm", values)}</div>
     </section>
 
-    <footer class="hw-bar">
-      <div class="hw-item"><span class="hw-item__k">Hardware</span><span class="hw-item__v">ESP32</span></div>
-      <div class="hw-item"><span class="hw-item__k">Signal</span><span class="hw-item__v">${connected ? "Live" : "—"}</span></div>
-      <div class="hw-item"><span class="hw-item__k">Backend</span><span class="hw-item__v">Firebase</span></div>
-      <div class="hw-item"><span class="hw-item__k">Channels</span><span class="hw-item__v">${stats.channelCount}</span></div>
-    </footer>`;
+    `;
 }
 
 function devField(id, label, value, type = "text") {
