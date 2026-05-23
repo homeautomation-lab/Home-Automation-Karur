@@ -23,7 +23,6 @@ import {
   metaForKey,
   timingPathsFor,
   hasBuiltInSchedule,
-  isPushRoomType,
   pushKeyFor,
 } from "./firebase-catalog.js";
 import {
@@ -38,6 +37,8 @@ import {
   addDeviceToRoom,
   removeDeviceFromRoom,
   availableKeys,
+  usesPushControl,
+  canChooseControlMode,
   roomAbbr,
   canAddRoom,
   roomCountForType,
@@ -259,20 +260,49 @@ function renderAddDeviceModal(state, roomType, roomId) {
       </div>`;
   }
   const selected = state.ui.draft?.addDeviceKey ?? avail[0].key;
+  const controlMode = state.ui.draft?.addDeviceControlMode ?? "toggle";
+  const showControlChoice = canChooseControlMode(roomType);
   const opts = avail
     .map((d) => {
       const sel = d.key === selected ? " selected" : "";
       return `<option value="${escapeHtml(d.key)}"${sel}>${escapeHtml(d.key)} — ${escapeHtml(d.defaultLabel)}</option>`;
     })
     .join("");
+  const controlChoice = showControlChoice
+    ? `
+        <p class="field-label">Control type</p>
+        <div class="control-mode-picker" role="radiogroup" aria-label="Control type">
+          <label class="control-mode-picker__option">
+            <input type="radio" name="add-device-control" value="toggle" data-draft="addDeviceControlMode"
+              ${controlMode === "toggle" ? "checked" : ""} />
+            <span class="control-mode-picker__box">
+              <span class="control-mode-picker__title">Toggle</span>
+              <span class="control-mode-picker__desc">On/off switch · uses main channel key</span>
+            </span>
+          </label>
+          <label class="control-mode-picker__option">
+            <input type="radio" name="add-device-control" value="push" data-draft="addDeviceControlMode"
+              ${controlMode === "push" ? "checked" : ""} />
+            <span class="control-mode-picker__box">
+              <span class="control-mode-picker__title">Push button</span>
+              <span class="control-mode-picker__desc">Momentary · creates <code>${escapeHtml(pushKeyFor(selected))}</code> in Firebase</span>
+            </span>
+          </label>
+        </div>`
+    : `<p class="modal__hint">Switch channels use an on/off toggle. ON/OFF schedules are added automatically.</p>`;
+  const hint = showControlChoice
+    ? "Motors and alarms can use a toggle or a momentary push button. ON/OFF schedules are added for motors."
+    : "";
   return `
     <div class="modal-backdrop" data-action="backdrop-close">
       <div class="modal modal--sm modal__panel">
         <header class="modal__head"><h2>Add device</h2>
           <button type="button" class="modal__close" data-action="close-modal">×</button>
         </header>
-        <p class="modal__hint">${roomType === "switch" ? "Switches include ON/OFF schedule paths (SWn-ON_TIMING / SWn-OFF_TIMING). Tap a switch name in the room to rename it." : roomType === "motor" ? "Motors use a momentary PUSH button (Mn-PUSH) plus ON/OFF schedules." : "Alarms use a momentary PUSH button (ALRMn-PUSH)."}</p>
+        ${hint ? `<p class="modal__hint">${hint}</p>` : ""}
+        <label class="field-label">Channel</label>
         <select class="field-input" id="add-device-key" data-draft="addDeviceKey">${opts}</select>
+        ${controlChoice}
         <footer class="modal__foot">
           <button type="button" class="btn-ghost" data-action="close-modal">Cancel</button>
           <button type="button" class="btn-primary" data-action="confirm-add-device" data-room-id="${escapeHtml(roomId)}">Add</button>
@@ -324,7 +354,7 @@ function renderDeviceRow(device, room, values, roomType) {
   const path = devicePath(device.firebaseKey);
   const raw = path ? values[path] : "";
   const meta = metaForKey(device.firebaseKey);
-  const usePush = isPushRoomType(roomType);
+  const usePush = usesPushControl(device);
   const pushPath = usePush && meta ? refPath(meta.root, pushKeyFor(device.firebaseKey)) : "";
   const pushOn = pushPath ? isOn(values[pushPath]) : false;
   const on = usePush ? pushOn : isOn(raw);
@@ -354,7 +384,9 @@ function renderDeviceRow(device, room, values, roomType) {
       </div>`
     : "";
 
-  const pushHint = usePush ? ` · ${pushKeyFor(device.firebaseKey)}` : "";
+  const pushHint = usePush
+    ? ` · push · ${pushKeyFor(device.firebaseKey)}`
+    : " · toggle";
   const blockClass = on ? (usePush ? "device-block--push" : "device-block--on") : "";
 
   return `
@@ -631,11 +663,10 @@ async function ensurePushKey(db, baseKey, values) {
 }
 
 async function ensureRoomPushKeys(db, layout, roomType, roomId, values) {
-  if (!isPushRoomType(roomType)) return;
   const room = findRoom(layout, roomType, roomId);
   if (!room) return;
   for (const d of room.devices) {
-    await ensurePushKey(db, d.firebaseKey, values);
+    if (usesPushControl(d)) await ensurePushKey(db, d.firebaseKey, values);
   }
 }
 
@@ -835,6 +866,10 @@ function mountApp(db) {
     if (nameInput) state.ui.draft.newRoomName = nameInput.value;
     const keySelect = modalEl?.querySelector("#add-device-key");
     if (keySelect) state.ui.draft.addDeviceKey = keySelect.value;
+    const controlRadio = modalEl?.querySelector(
+      'input[name="add-device-control"]:checked'
+    );
+    if (controlRadio) state.ui.draft.addDeviceControlMode = controlRadio.value;
   }
 
   function showToast(message, ms = 3500) {
@@ -937,6 +972,11 @@ function mountApp(db) {
     if (draftKey && state.ui.draft) {
       state.ui.draft[draftKey] = e.target.value;
     }
+    if (e.target.matches("#add-device-key") && state.ui.modal === "add-device") {
+      state.ui.draft.addDeviceKey = e.target.value;
+      paintNow();
+      return;
+    }
     if (e.target.matches("[data-action='minute-range']") && state.ui.timeModal) {
       state.ui.timeModal.time.minute = parseInt(e.target.value, 10);
       state.ui.timeModal.picking = "minute";
@@ -1005,9 +1045,7 @@ function mountApp(db) {
       state.ui.roomId = el.dataset.roomId;
       closeModal(state);
       paintNow();
-      if (isPushRoomType(state.ui.roomType)) {
-        void ensureRoomPushKeys(db, state.layout, state.ui.roomType, state.ui.roomId, state.values);
-      }
+      void ensureRoomPushKeys(db, state.layout, state.ui.roomType, state.ui.roomId, state.values);
       return;
     }
 
@@ -1055,7 +1093,10 @@ function mountApp(db) {
       const avail = availableKeys(state.layout, state.ui.roomType);
       state.ui.modal = "add-device";
       state.ui.roomId = el.dataset.roomId;
-      state.ui.draft = { addDeviceKey: avail[0]?.key ?? "" };
+      state.ui.draft = {
+        addDeviceKey: avail[0]?.key ?? "",
+        addDeviceControlMode: canChooseControlMode(state.ui.roomType) ? "toggle" : "toggle",
+      };
       paintNow();
       return;
     }
@@ -1064,8 +1105,12 @@ function mountApp(db) {
       e.preventDefault();
       syncDraftFromModal();
       const key = state.ui.draft.addDeviceKey;
-      if (key && addDeviceToRoom(state.layout, state.ui.roomType, state.ui.roomId, key)) {
-        if (isPushRoomType(state.ui.roomType)) {
+      const controlMode = state.ui.draft.addDeviceControlMode ?? "toggle";
+      if (
+        key &&
+        addDeviceToRoom(state.layout, state.ui.roomType, state.ui.roomId, key, controlMode)
+      ) {
+        if (controlMode === "push") {
           try {
             await ensurePushKey(db, key, state.values);
           } catch (err) {

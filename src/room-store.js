@@ -1,4 +1,4 @@
-import { catalogForType, addableCatalog } from "./firebase-catalog.js";
+import { catalogForType, addableCatalog, pushKeyFor } from "./firebase-catalog.js";
 
 const STORAGE_KEY = "lumina-room-layout-v4";
 
@@ -31,11 +31,15 @@ function normalizeRoom(room) {
     devices: Array.isArray(room.devices)
       ? room.devices
           .filter((d) => d && d.firebaseKey && !isStandaloneTimingKey(d.firebaseKey))
-          .map((d) => ({
-            firebaseKey: d.firebaseKey,
-            label: String(d.label || d.firebaseKey),
-            kind: d.kind || inferKind(d.firebaseKey),
-          }))
+          .map((d) => {
+            const kind = d.kind || inferKind(d.firebaseKey);
+            return {
+              firebaseKey: d.firebaseKey,
+              label: String(d.label || d.firebaseKey),
+              kind,
+              controlMode: normalizeControlMode(d.controlMode, kind),
+            };
+          })
       : [],
   };
 }
@@ -55,6 +59,22 @@ function inferKind(firebaseKey) {
   if (firebaseKey.startsWith("M")) return "motor";
   if (firebaseKey.startsWith("ALRM")) return "alarm";
   return "switch";
+}
+
+/** @returns {"toggle" | "push"} */
+function normalizeControlMode(mode, kind) {
+  if (kind === "switch") return "toggle";
+  if (mode === "push" || mode === "toggle") return mode;
+  if (kind === "motor" || kind === "alarm") return "push";
+  return "toggle";
+}
+
+export function usesPushControl(device) {
+  return device?.controlMode === "push";
+}
+
+export function canChooseControlMode(roomType) {
+  return roomType === "motor" || roomType === "alarm";
 }
 
 export function normalizeLayout(data) {
@@ -150,7 +170,7 @@ export function renameDevice(layout, roomType, roomId, firebaseKey, label) {
   persistLayout(layout);
 }
 
-export function addDeviceToRoom(layout, roomType, roomId, firebaseKey) {
+export function addDeviceToRoom(layout, roomType, roomId, firebaseKey, controlMode = "toggle") {
   const room = findRoom(layout, roomType, roomId);
   const meta = addableCatalog(roomType).find((d) => d.key === firebaseKey);
   if (!room || !meta) return false;
@@ -159,6 +179,7 @@ export function addDeviceToRoom(layout, roomType, roomId, firebaseKey) {
     firebaseKey: meta.key,
     label: meta.defaultLabel,
     kind: meta.kind,
+    controlMode: normalizeControlMode(controlMode, meta.kind),
   });
   persistLayout(layout);
   return true;
@@ -193,7 +214,8 @@ export function countRoomActive(room, values) {
       d.kind === "switch" ? "switch" : d.kind === "alarm" ? "alarm" : "motor"
     ).find((x) => x.key === d.firebaseKey);
     if (!meta) return false;
-    const path = `${meta.root}/${d.firebaseKey}`;
+    const key = usesPushControl(d) ? pushKeyFor(d.firebaseKey) : d.firebaseKey;
+    const path = `${meta.root}/${key}`;
     const v = values[path];
     return ["1", "ON", "on", "true", true, 1].includes(v) || String(v).trim() === "1";
   }).length;
